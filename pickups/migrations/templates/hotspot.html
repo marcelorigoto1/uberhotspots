@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hotspots de Uber</title>
+</head>
+<body>
+    <h1>Mapa de Hotspots - NYC</h1>
+
+    <form method="get">
+        <label>Dia da Semana:
+            <select name="weekday">
+                {% for w in weekdays %}
+                    <option value="{{ w }}" {% if w == selected_weekday %}selected{% endif %}>{{ w }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>Hora:
+            <select name="hour">
+                {% for h in hours %}
+                    <option value="{{ h }}" {% if h == selected_hour %}selected{% endif %}>{{ h }}h</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <button type="submit">Ver Mapa</button>
+    </form>
+
+    <hr>
+    <div>
+        <img src="{% static image_path %}" alt="Mapa de calor do Uber">
+    </div>
+</body>
+</html>
