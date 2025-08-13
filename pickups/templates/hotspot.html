@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uber Hotspots 2014 - NYC (Folium)</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/hotspot.css' %}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <style>
+        #map { width: 100vw; height: 600px; margin: 0; padding: 0; }
+    </style>
+</head>
+<body>
+    <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+    <h1>Uber Hotspots 2014 - NYC (Folium)</h1>
+    <form onsubmit="event.preventDefault();">
+        <label>Weekday:
+            <select id="weekday" name="weekday" onchange="updateMap()">
+                {% for w in weekdays %}
+                    <option value="{{ w }}" {% if w == selected_weekday %}selected{% endif %}>{{ w }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Hour:
+            <select id="hour" name="hour" onchange="updateMap()">
+                {% for h in hours %}
+                    <option value="{{ h }}" {% if h == selected_hour %}selected{% endif %}>{{ h }}h</option>
+                {% endfor %}
+            </select>
+        </label>
+    </form>
+    <hr>
+    <div id="map"></div>
+    <a href="/leaflet/" id="switch-btn">Switch to Leaflet View</a>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script>
+        // Initializes the Leaflet map and adds the OpenStreetMap basemap
+        var map = L.map('map').setView([40.7128, -74.0060], 12);
+        var heatLayer;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Fetches hotspot data for the selected weekday and hour,
+        // removes any existing heatmap, and adds a new heatmap layer.
+        // Keeps the current map center and zoom after updating.
+        function updateMap() {
+            var center = map.getCenter();
+            var zoom = map.getZoom();
+            var weekday = document.getElementById('weekday').value;
+            var hour = document.getElementById('hour').value;
+            fetch('/hotspot-data/?weekday=' + weekday + '&hour=' + hour)
+                .then(response => response.json())
+                .then(data => {
+                    if (heatLayer) map.removeLayer(heatLayer);
+                    var heatData = [];
+                    data.features.forEach(function(feature) {
+                        var coords = feature.geometry.coordinates;
+                        heatData.push([coords[1], coords[0]]);
+                    });
+                    heatLayer = L.heatLayer(heatData, {radius: 18}).addTo(map);
+                    map.setView(center, zoom); // keeps zoom and center after update
+                });
+        }
+        updateMap();
+
+        // Toggles between dark and light mode, updates button text,
+        // and saves the user's preference in localStorage.
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark');
+            const btn = document.getElementById('theme-toggle');
+            if (body.classList.contains('dark')) {
+                btn.innerText = '☀️ Light Mode';
+            } else {
+                btn.innerText = '🌙 Dark Mode';
+            }
+        }
+        // Loads theme preference from localStorage on page load
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark');
+            document.getElementById('theme-toggle').innerText = '☀️ Light Mode';
+        }
+        document.getElementById('theme-toggle').onclick = function() {
+            toggleTheme();
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        }
+    </script>
+</body>
+</html>

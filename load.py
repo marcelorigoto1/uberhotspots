@@ -1,18 +1,16 @@
-# prepare_data.py
-
 import pandas as pd
 
-# 1. Carregar o arquivo CSV
+# 1. Load CSV
 df = pd.read_csv("uber-raw-data-may14.csv")
 
-# 2. Converter para datetime
+# 2. convert 'Date/Time' to datetime
 df['Date/Time'] = pd.to_datetime(df['Date/Time'])
 
-# 3. Criar colunas auxiliares para análise temporal
+# 3. create 'hour' and 'weekday' columns
 df['hour'] = df['Date/Time'].dt.hour
 df['weekday'] = df['Date/Time'].dt.day_name()
 
-# 4. Renomear colunas para padrão Django/PostgreSQL amigável
+# 4. rename columns for consistency
 df = df.rename(columns={
     'Date/Time': 'datetime',
     'Lat': 'lat',
@@ -20,7 +18,7 @@ df = df.rename(columns={
     'Base': 'base'
 })
 
-# 5. Exportar para CSV limpo (para importar no banco de dados depois)
+# 5. drop unnecessary columns
 df.to_csv("uber_data_clean.csv", index=False)
 
 print('Executado com sucesso.')

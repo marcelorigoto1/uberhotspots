@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Uber Hotspots 2014 - NYC (Leaflet)</title>
+    {% load static %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="{% static 'css/hotspot.css' %}">
+    <style>
+        #map {
+            width: 100vw;
+            height: 600px;
+            margin: 0;
+            padding: 0;
+        }
+        .controls {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <a href="/" id="switch-btn">Switch to Folium View</a>
+    <button id="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+    <h1>Uber Hotspots 2014 - NYC (Leaflet)</h1>
+    <form class="controls" id="controls1" onsubmit="event.preventDefault();">
+        <label>Weekday:
+            <select id="weekday1" name="weekday1" onchange="updateMap()">
+                {% for w in weekdays %}
+                    <option value="{{ w }}" {% if w == selected_weekday %}selected{% endif %}>{{ w }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Hour:
+            <select id="hour1" name="hour1" onchange="updateMap()">
+                {% for h in hours %}
+                    <option value="{{ h }}" {% if h == selected_hour %}selected{% endif %}>{{ h }}h</option>
+                {% endfor %}
+            </select>
+        </label>
+    </form>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script>
+        // Initializes the Leaflet map and adds the OpenStreetMap basemap
+        var map = L.map('map').setView([40.7831, -73.9712], 12);
+        var heatLayer;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Fetches hotspot data for the selected weekday and hour,
+        // removes any existing heatmap, and adds a new heatmap layer.
+        // Keeps the current map center and zoom after updating.
+        function updateMap() {
+            var center = map.getCenter();
+            var zoom = map.getZoom();
+            var weekday = document.getElementById('weekday1').value;
+            var hour = document.getElementById('hour1').value;
+            fetch('/hotspot-data/?weekday=' + weekday + '&hour=' + hour)
+                .then(response => response.json())
+                .then(data => {
+                    if (heatLayer) map.removeLayer(heatLayer);
+                    var heatData = [];
+                    data.features.forEach(function(feature) {
+                        var coords = feature.geometry.coordinates;
+                        heatData.push([coords[1], coords[0]]);
+                    });
+                    heatLayer = L.heatLayer(heatData, {radius: 18}).addTo(map);
+                    map.setView(center, zoom);
+                });
+        }
+        updateMap();
+
+        // Toggles between dark and light mode, updates button text,
+        // and saves the user's preference in localStorage.
+        function toggleTheme() {
+            const body = document.body;
+            body.classList.toggle('dark');
+            const btn = document.getElementById('theme-toggle');
+            if (body.classList.contains('dark')) {
+                btn.innerText = '☀️ Light Mode';
+            } else {
+                btn.innerText = '🌙 Dark Mode';
+            }
+        }
+
+        // Loads theme preference from localStorage on page load
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark');
+            document.getElementById('theme-toggle').innerText = '☀️ Light Mode';
+        }
+
+        // Handles theme toggle button click and saves preference
+        document.getElementById('theme-toggle').onclick = function() {
+            toggleTheme();
+            localStorage.setItem('theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+        }
+    </script>
+</body>
+</html>

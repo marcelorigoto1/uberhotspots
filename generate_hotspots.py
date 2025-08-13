@@ -1,51 +1,51 @@
+# ---------------------------------------------------------------------------------
+# Functionality overview:
+#
+# 1. Loads Uber pickup CSV data and creates a GeoDataFrame with point geometries.
+# 2. Loads the Manhattan shapefile for spatial filtering.
+# 3. Filters pickups to only those within Manhattan.
+# 4. For each weekday and hour:
+#    - Filters pickups for that time.
+#    - Creates a Folium map centered on Manhattan.
+#    - Adds the Manhattan boundary and a heatmap of pickups.
+#    - Saves the map as an HTML file in static/hotspots_basemap.
+# ---------------------------------------------------------------------------------
+
 import pandas as pd
 import geopandas as gpd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import contextily as ctx
+import folium
+from folium.plugins import HeatMap
 import os
-from shapely.geometry import Point
 
-# Carregar dados
+weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+hours = list(range(24))
+
+print("Loading CSV")
 df = pd.read_csv("uber_data_clean.csv")
-
-# Converter para GeoDataFrame
-geometry = [Point(xy) for xy in zip(df["lon"], df["lat"])]
+geometry = gpd.points_from_xy(df["lon"], df["lat"])
 gdf = gpd.GeoDataFrame(df, geometry=geometry, crs="EPSG:4326")
+print("Data criated.")
 
-# Pasta de saída
+print("Loading shapefile")
+manhattan = gpd.read_file(r"C:\Users\marce\Documents\GitHub\uberhotspots\shapefiles\manhattan.shp")
+print("Shapefile loaded.")
+
+print("Filtering pickups ")
+gdf_manhattan = gdf[gdf.within(manhattan.union_all())]
+print(f"Total pickups: {len(gdf_manhattan)}")
+
 output_dir = "static/hotspots_basemap"
 os.makedirs(output_dir, exist_ok=True)
 
-for weekday in gdf["weekday"].unique():
-    for hour in range(24):
-        subset = gdf[(gdf["weekday"] == weekday) & (gdf["hour"] == hour)]
-        if len(subset) < 100:
-            continue
-
-        # Reprojetar para Web Mercator
-        subset_proj = subset.to_crs(epsg=3857)
-
-        # Criar gráfico com contexto base
-        fig, ax = plt.subplots(figsize=(10, 8))
-        try:
-            sns.kdeplot(
-                x=subset_proj.geometry.x,
-                y=subset_proj.geometry.y,
-                fill=True,
-                cmap="Reds",
-                bw_adjust=0.1,
-                thresh=0.05,
-                levels=7,
-                ax=ax
-            )
-            ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron)
-            ax.set_axis_off()
-
-            filename = f"{output_dir}/hotspot_{weekday}_{hour}.png"
-            plt.savefig(filename, bbox_inches="tight")
-            print(f"Gerado: {weekday} {hour}")
-        except Exception as e:
-            print(f"Erro ao gerar mapa {weekday} {hour}: {e}")
-        finally:
-            plt.close()
+for weekday in weekdays:
+    for hour in hours:
+        print(f"Generating map {weekday}, {hour}h...")
+        subset = gdf_manhattan[(gdf_manhattan["weekday"] == weekday) & (gdf_manhattan["hour"] == hour)]
+        print(f"Total pickups: {len(subset)}")
+        m = folium.Map(location=[40.7831, -73.9712], zoom_start=12)
+        folium.GeoJson(manhattan).add_to(m)
+        heat_data = [[row.geometry.y, row.geometry.x] for idx, row in subset.iterrows()]
+        HeatMap(heat_data, radius=12).add_to(m)
+        output_path = os.path.join(output_dir, f"hotspot_{weekday}_{hour}.html")
+        m.save(output_path)
+        print(f"Map salved at {output_path}")
